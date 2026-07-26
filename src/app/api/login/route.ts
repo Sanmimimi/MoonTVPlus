@@ -19,6 +19,10 @@ import {
 
 export const runtime = 'nodejs';
 
+// 设置默认用户名密码
+const DEFAULT_USERNAME = 'admin';
+const DEFAULT_PASSWORD = 'admin123';
+
 // 读取存储类型环境变量，默认 localstorage
 const STORAGE_TYPE =
   (process.env.NEXT_PUBLIC_STORAGE_TYPE as
@@ -86,7 +90,9 @@ async function generateAuthCookie(
     authData.password = password;
   }
 
-  if (username && process.env.PASSWORD) {
+  const PASSWORD = process.env.PASSWORD || DEFAULT_PASSWORD;
+
+  if (username && PASSWORD) {
     authData.username = username;
     authData.timestamp = now; // Access Token 时间戳
 
@@ -120,7 +126,7 @@ async function generateAuthCookie(
       role: authData.role,
       timestamp: authData.timestamp
     });
-    const signature = await generateSignature(dataToSign, process.env.PASSWORD);
+    const signature = await generateSignature(dataToSign, PASSWORD);
     authData.signature = signature;
   }
 
@@ -203,22 +209,7 @@ export async function POST(req: NextRequest) {
 
     // 本地 / localStorage 模式——仅校验固定密码
     if (STORAGE_TYPE === 'localstorage') {
-      const envPassword = process.env.PASSWORD;
-
-      // 未配置 PASSWORD 时直接放行
-      if (!envPassword) {
-        const response = buildLoginResponse();
-
-        // 清除可能存在的认证cookie
-        response.cookies.set('auth', '', {
-          path: '/',
-          expires: new Date(0),
-          sameSite: 'lax',
-          httpOnly: false,
-        });
-
-        return response;
-      }
+      const envPassword = process.env.PASSWORD || DEFAULT_PASSWORD;
 
       const { password } = await req.json();
       if (typeof password !== 'string') {
@@ -236,7 +227,7 @@ export async function POST(req: NextRequest) {
       recordLoginSuccess(clientIp);
 
       // 验证成功，设置认证cookie
-      const username = process.env.USERNAME || 'default';
+      const username = process.env.USERNAME || DEFAULT_USERNAME;
       const deviceInfo = getDeviceInfo(req);
       const cookieValue = await generateAuthCookie(
         username,
@@ -297,10 +288,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const USERNAME = process.env.USERNAME || DEFAULT_USERNAME;
+    const PASSWORD = process.env.PASSWORD || DEFAULT_PASSWORD;
+
     // 可能是站长，直接读环境变量
     if (
-      username === process.env.USERNAME &&
-      password === process.env.PASSWORD
+      username === USERNAME &&
+      password === PASSWORD
     ) {
       recordLoginSuccess(clientIp);
 
@@ -326,7 +320,7 @@ export async function POST(req: NextRequest) {
       });
 
       return response;
-    } else if (username === process.env.USERNAME) {
+    } else if (username === USERNAME) {
       recordLoginFailure(clientIp);
       return NextResponse.json({ error: '用户名或密码错误' }, { status: 401 });
     }
