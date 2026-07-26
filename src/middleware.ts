@@ -21,11 +21,8 @@ export async function middleware(request: NextRequest) {
 
   const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'localstorage';
 
-  if (!process.env.PASSWORD) {
-    // 如果未配置密码，重定向到警告页面
-    const warningUrl = new URL('/warning', request.url);
-    return warningUrl.pathname === pathname ? NextResponse.next() : NextResponse.redirect(warningUrl);
-  }
+  // 设置默认密码（如果未配置环境变量 PASSWORD）
+  const PASSWORD = process.env.PASSWORD || 'admin123';
 
   // 从cookie获取认证信息
   const authInfo = getAuthInfoFromCookie(request);
@@ -36,7 +33,7 @@ export async function middleware(request: NextRequest) {
 
   // localstorage模式：在middleware中完成验证
   if (storageType === 'localstorage') {
-    if (!authInfo.password || authInfo.password !== process.env.PASSWORD) {
+    if (!authInfo.password || authInfo.password !== PASSWORD) {
       return handleAuthFailure(request, pathname);
     }
     return NextResponse.next();
@@ -83,7 +80,7 @@ export async function middleware(request: NextRequest) {
     authInfo.role,
     authInfo.timestamp,
     authInfo.signature,
-    process.env.PASSWORD || ''
+    PASSWORD
   );
 
   if (!isValidSignature) {
